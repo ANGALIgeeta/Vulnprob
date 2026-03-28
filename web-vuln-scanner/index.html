@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VulnProbe — Web Security Scanner</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0c10;
+      --surface: #111318;
+      --surface2: #181b22;
+      --border: #1e2230;
+      --accent: #00f5a0;
+      --accent2: #00c8f5;
+      --red: #ff4d6d;
+      --orange: #ff9f43;
+      --yellow: #ffd32a;
+      --blue: #48dbfb;
+      --muted: #4a5068;
+      --text: #e2e8f0;
+      --text2: #8892aa;
+      --critical: #ff4d6d;
+      --high: #ff6b35;
+      --medium: #ffd32a;
+      --low: #48dbfb;
+      --info: #a29bfe;
+    }
+
+    body {
+      font-family: 'Syne', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* GRID BACKGROUND */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,245,160,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,245,160,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+    }
+
+    /* HEADER */
+    header {
+      padding: 48px 0 32px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 48px;
+    }
+
+    .logo-icon {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+      box-shadow: 0 0 30px rgba(0,245,160,0.3);
+    }
+
+    .logo-text h1 {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .logo-text p {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .badge {
+      margin-left: auto;
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      padding: 4px 10px;
+      background: rgba(0,245,160,0.08);
+      border: 1px solid rgba(0,245,160,0.2);
+      border-radius: 4px;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* SCAN INPUT */
+    .scan-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 36px;
+      margin-bottom: 36px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .scan-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2), transparent);
+    }
+
+    .scan-card h2 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .scan-card p {
+      color: var(--text2);
+      font-size: 14px;
+      margin-bottom: 28px;
+      font-family: 'Space Mono', monospace;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .url-input {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-family: 'Space Mono', monospace;
+      font-size: 14px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .url-input::placeholder { color: var(--muted); }
+
+    .url-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(0,245,160,0.1);
+    }
+
+    .scan-btn {
+      padding: 14px 28px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none;
+      border-radius: 10px;
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: #0a0c10;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      white-space: nowrap;
+      letter-spacing: 0.5px;
+    }
+
+    .scan-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+    .scan-btn:active { transform: translateY(0); }
+    .scan-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    .safe-note {
+      margin-top: 14px;
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* PROGRESS */
+    #progress-section { display: none; margin-bottom: 28px; }
+
+    .progress-bar-wrap {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px 24px;
+    }
+
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      color: var(--text2);
+    }
+
+    .progress-track {
+      height: 6px;
+      background: var(--border);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 99px;
+      transition: width 0.4s ease;
+      width: 0%;
+      box-shadow: 0 0 10px rgba(0,245,160,0.5);
+    }
+
+    .scanning-dots::after {
+      content: '';
+      animation: dots 1.2s steps(3, end) infinite;
+    }
+
+    @keyframes dots {
+      0%   { content: ''; }
+      33%  { content: '.'; }
+      66%  { content: '..'; }
+      100% { content: '...'; }
+    }
+
+    /* SUMMARY CARDS */
+    #summary-section { display: none; margin-bottom: 28px; }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+    }
+
+    @media (max-width: 700px) {
+      .summary-grid { grid-template-columns: repeat(3, 1fr); }
+      .input-row { flex-direction: column; }
+      .scan-btn { width: 100%; }
+    }
+
+    .summary-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      transition: transform 0.15s;
+    }
+
+    .summary-card:hover { transform: translateY(-2px); }
+
+    .summary-card .count {
+      font-size: 32px;
+      font-weight: 800;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .summary-card .label {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text2);
+    }
+
+    .sev-critical .count { color: var(--critical); }
+    .sev-high .count { color: var(--high); }
+    .sev-medium .count { color: var(--medium); }
+    .sev-low .count { color: var(--low); }
+    .sev-info .count { color: var(--info); }
+
+    /* FILTERS */
+    #filter-section { display: none; margin-bottom: 20px; }
+
+    .filter-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text2);
+      cursor: pointer;
+      transition: all 0.15s;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .filter-btn:hover, .filter-btn.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(0,245,160,0.06);
+    }
+
+    /* RESULTS */
+    #results-section { display: none; }
+
+    .section-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 16px;
+      font-family: 'Space Mono', monospace;
+    }
+
+    .finding-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-bottom: 10px;
+      transition: border-color 0.15s, transform 0.15s;
+      cursor: pointer;
+      animation: fadeUp 0.3s ease both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .finding-card:hover { border-color: var(--muted); transform: translateX(3px); }
+
+    .finding-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .sev-pill {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .pill-CRITICAL { background: rgba(255,77,109,0.15); color: var(--critical); border: 1px solid rgba(255,77,109,0.3); }
+    .pill-HIGH     { background: rgba(255,107,53,0.15); color: var(--high);     border: 1px solid rgba(255,107,53,0.3); }
+    .pill-MEDIUM   { background: rgba(255,211,42,0.12); color: var(--medium);   border: 1px solid rgba(255,211,42,0.25); }
+    .pill-LOW      { background: rgba(72,219,251,0.1);  color: var(--low);      border: 1px solid rgba(72,219,251,0.2); }
+    .pill-INFO     { background: rgba(162,155,254,0.1); color: var(--info);     border: 1px solid rgba(162,155,254,0.2); }
+
+    .finding-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .finding-category {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .finding-body {
+      display: none;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .finding-card.open .finding-body { display: block; }
+
+    .finding-desc {
+      font-size: 14px;
+      color: var(--text2);
+      line-height: 1.6;
+      margin-bottom: 12px;
+    }
+
+    .finding-fix {
+      background: var(--surface2);
+      border-left: 3px solid var(--accent);
+      padding: 10px 14px;
+      border-radius: 0 6px 6px 0;
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    .finding-fix strong {
+      display: block;
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--accent);
+      margin-bottom: 4px;
+    }
+
+    .finding-detail {
+      margin-top: 10px;
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      word-break: break-all;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 24px;
+      color: var(--muted);
+    }
+
+    .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+    .empty-state p { font-family: 'Space Mono', monospace; font-size: 13px; }
+
+    /* EXPORT BTN */
+    .export-btn {
+      margin-bottom: 20px;
+      padding: 10px 20px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      color: var(--text2);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .export-btn:hover {
+      border-color: var(--accent2);
+      color: var(--accent2);
+    }
+
+    /* SCROLLBAR */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="logo-icon">🔍</div>
+    <div class="logo-text">
+      <h1>VulnProbe</h1>
+      <p>Web Application Security Scanner</p>
+    </div>
+    <div class="badge">Educational Use Only</div>
+  </header>
+
+  <!-- SCAN INPUT -->
+  <div class="scan-card">
+    <h2>Run a Security Scan</h2>
+    <p>// Enter a URL to scan for common web vulnerabilities</p>
+    <div class="input-row">
+      <input class="url-input" id="url-input" type="text" placeholder="https://example.com" autocomplete="off" />
+      <button class="scan-btn" id="scan-btn" onclick="startScan()">⚡ Scan Now</button>
+    </div>
+    <div class="safe-note">
+      🛡️ Only scan domains you own or have explicit permission to test.
+    </div>
+  </div>
+
+  <!-- PROGRESS -->
+  <div id="progress-section">
+    <div class="progress-bar-wrap">
+      <div class="progress-label">
+        <span id="progress-status">Initializing scanner<span class="scanning-dots"></span></span>
+        <span id="progress-pct">0%</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUMMARY -->
+  <div id="summary-section">
+    <div class="summary-grid">
+      <div class="summary-card sev-critical">
+        <div class="count" id="cnt-critical">0</div>
+        <div class="label">Critical</div>
+      </div>
+      <div class="summary-card sev-high">
+        <div class="count" id="cnt-high">0</div>
+        <div class="label">High</div>
+      </div>
+      <div class="summary-card sev-medium">
+        <div class="count" id="cnt-medium">0</div>
+        <div class="label">Medium</div>
+      </div>
+      <div class="summary-card sev-low">
+        <div class="count" id="cnt-low">0</div>
+        <div class="label">Low</div>
+      </div>
+      <div class="summary-card sev-info">
+        <div class="count" id="cnt-info">0</div>
+        <div class="label">Info</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FILTERS & EXPORT -->
+  <div id="filter-section">
+    <button class="export-btn" onclick="exportReport()">⬇ Export JSON Report</button>
+    <div class="filter-row">
+      <button class="filter-btn active" onclick="setFilter('ALL', this)">All</button>
+      <button class="filter-btn" onclick="setFilter('CRITICAL', this)">Critical</button>
+      <button class="filter-btn" onclick="setFilter('HIGH', this)">High</button>
+      <button class="filter-btn" onclick="setFilter('MEDIUM', this)">Medium</button>
+      <button class="filter-btn" onclick="setFilter('LOW', this)">Low</button>
+      <button class="filter-btn" onclick="setFilter('INFO', this)">Info</button>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="results-section">
+    <div class="section-title">Findings</div>
+    <div id="findings-list"></div>
+  </div>
+
+</div>
+
+<script>
+  const API = 'http://localhost:5000';
+  let allFindings = [];
+  let activeFilter = 'ALL';
+  let pollTimer = null;
+  let currentUrl = '';
+
+  async function startScan() {
+    const url = document.getElementById('url-input').value.trim();
+    if (!url) { alert('Please enter a URL.'); return; }
+
+    currentUrl = url;
+    allFindings = [];
+
+    document.getElementById('scan-btn').disabled = true;
+    document.getElementById('progress-section').style.display = 'block';
+    document.getElementById('summary-section').style.display = 'none';
+    document.getElementById('filter-section').style.display = 'none';
+    document.getElementById('results-section').style.display = 'none';
+    document.getElementById('findings-list').innerHTML = '';
+    setProgress(0, 'Initializing scanner');
+
+    try {
+      const res = await fetch(`${API}/api/scan`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({url})
+      });
+      const data = await res.json();
+      if (data.error) { showError(data.error); return; }
+      pollStatus(data.job_id);
+    } catch (e) {
+      showError('Could not connect to scanner backend. Is it running on port 5000?');
+    }
+  }
+
+  function pollStatus(jobId) {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(async () => {
+      try {
+        const res = await fetch(`${API}/api/status/${jobId}`);
+        const job = await res.json();
+
+        setProgress(job.progress, getProgressLabel(job.progress));
+        updateSummary(job.results);
+        allFindings = job.results;
+
+        if (job.status === 'done' || job.status === 'error') {
+          clearInterval(pollTimer);
+          document.getElementById('scan-btn').disabled = false;
+          document.getElementById('summary-section').style.display = 'block';
+          document.getElementById('filter-section').style.display = 'block';
+          document.getElementById('results-section').style.display = 'block';
+          if (job.status === 'error') {
+            setProgress(100, `Error: ${job.error || 'Unknown error'}`);
+          } else {
+            setProgress(100, `Scan complete — ${job.results.length} findings`);
+          }
+          renderFindings(allFindings);
+        }
+      } catch(e) {}
+    }, 800);
+  }
+
+  function getProgressLabel(pct) {
+    if (pct < 10) return 'Connecting to target';
+    if (pct < 35) return 'Checking security headers';
+    if (pct < 65) return 'Probing sensitive paths';
+    if (pct < 78) return 'Analyzing cookies';
+    if (pct < 90) return 'Testing for XSS';
+    if (pct < 99) return 'Testing for SQL injection';
+    return 'Scan complete';
+  }
+
+  function setProgress(pct, label) {
+    document.getElementById('progress-fill').style.width = pct + '%';
+    document.getElementById('progress-pct').textContent = pct + '%';
+    const statusEl = document.getElementById('progress-status');
+    statusEl.innerHTML = pct < 100
+      ? label + '<span class="scanning-dots"></span>'
+      : label;
+  }
+
+  function updateSummary(results) {
+    const counts = {CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0};
+    results.forEach(r => { if (counts[r.severity] !== undefined) counts[r.severity]++; });
+    document.getElementById('cnt-critical').textContent = counts.CRITICAL;
+    document.getElementById('cnt-high').textContent = counts.HIGH;
+    document.getElementById('cnt-medium').textContent = counts.MEDIUM;
+    document.getElementById('cnt-low').textContent = counts.LOW;
+    document.getElementById('cnt-info').textContent = counts.INFO;
+  }
+
+  const SEV_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
+
+  function renderFindings(findings) {
+    const container = document.getElementById('findings-list');
+    const filtered = activeFilter === 'ALL'
+      ? findings
+      : findings.filter(f => f.severity === activeFilter);
+
+    const sorted = [...filtered].sort((a, b) =>
+      SEV_ORDER.indexOf(a.severity) - SEV_ORDER.indexOf(b.severity)
+    );
+
+    if (sorted.length === 0) {
+      container.innerHTML = `<div class="empty-state">
+        <div class="icon">✅</div>
+        <p>No findings for this filter.</p>
+      </div>`;
+      return;
+    }
+
+    container.innerHTML = sorted.map((f, i) => `
+      <div class="finding-card" onclick="toggleCard(this)" style="animation-delay:${i * 40}ms">
+        <div class="finding-header">
+          <div class="sev-pill pill-${f.severity}">${f.severity}</div>
+          <div>
+            <div class="finding-title">${escHtml(f.name)}</div>
+            <div class="finding-category">${escHtml(f.category)}</div>
+          </div>
+        </div>
+        <div class="finding-body">
+          <div class="finding-desc">${escHtml(f.description)}</div>
+          ${f.remediation ? `<div class="finding-fix"><strong>Remediation</strong>${escHtml(f.remediation)}</div>` : ''}
+          ${f.detail ? `<div class="finding-detail">// ${escHtml(f.detail)}</div>` : ''}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function toggleCard(el) {
+    el.classList.toggle('open');
+  }
+
+  function setFilter(sev, btn) {
+    activeFilter = sev;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderFindings(allFindings);
+  }
+
+  function exportReport() {
+    if (!allFindings.length) return;
+    const report = {
+      scanned_url: currentUrl,
+      timestamp: new Date().toISOString(),
+      total_findings: allFindings.length,
+      findings: allFindings
+    };
+    const blob = new Blob([JSON.stringify(report, null, 2)], {type: 'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `vulnprobe_report_${Date.now()}.json`;
+    a.click();
+  }
+
+  function showError(msg) {
+    document.getElementById('scan-btn').disabled = false;
+    setProgress(0, '');
+    document.getElementById('progress-section').style.display = 'none';
+    alert('Error: ' + msg);
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  document.getElementById('url-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') startScan();
+  });
+</script>
+</body>
+</html>
